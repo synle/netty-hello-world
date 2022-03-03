@@ -1,0 +1,32 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+repositories {
+    jcenter()
+}
+
+dependencies {
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.2.3'
+    implementation 'com.fasterxml.jackson.module:jackson-module-afterburner:2.2.3'
+    compile 'io.netty:netty-all:4.1.41.Final'
+}
+
+mainClassName = "com.github.synle.netty.AppServer"
+
+application {
+    // Define the main class for the application
+    mainClassName = "$mainClassName"
+}
+
+task buildFatJar(type: Jar) {
+    manifest {
+        attributes "Main-Class": "$mainClassName"
+    }
+
+    from {
+        configurations.compile.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    with jar
+}
