@@ -6,3 +6,6 @@ test:
 
 dist:
 	./gradlew buildFatJar
+
+start:
+	java -jar build/libs/netty-hello-world.jar

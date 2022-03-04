@@ -15,7 +15,12 @@ curl localhost:8080/
 ```
 
 
-## Build Jar
+## Build Fat Jar
 ```
 ./gradlew buildFatJar
+```
+
+## Run from Fat Jar
+```
+java -jar build/libs/netty-hello-world.jar
 ```
