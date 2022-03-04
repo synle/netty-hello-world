@@ -1,7 +1,10 @@
 package com.github.synle.netty;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.module.afterburner.AfterburnerModule;
+import com.github.synle.netty.data.ToDo;
+import com.github.synle.netty.data.TodoList;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFutureListener;
@@ -16,21 +19,6 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-
-
-class Message {
-    private final String message;
-
-    public Message(String message) {
-        super();
-        this.message = message;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-}
-
 
 // source: https://github.com/kamatama41/netty-sample-http/blob/master/src/main/java/com/kamatama41/netty/sample/http/HelloServerHandler.java
 public class ServerHandler extends SimpleChannelInboundHandler<Object> {
@@ -53,6 +41,7 @@ public class ServerHandler extends SimpleChannelInboundHandler<Object> {
     private static final CharSequence SERVER_ENTITY = HttpHeaders.newEntity(HttpHeaders.Names.SERVER);
     private static final ObjectMapper MAPPER;
 
+
     static {
         MAPPER = new ObjectMapper();
         MAPPER.registerModule(new AfterburnerModule());
@@ -73,24 +62,66 @@ public class ServerHandler extends SimpleChannelInboundHandler<Object> {
     }
 
     @Override
-    public void channelRead0(ChannelHandlerContext ctx, Object msg) throws Exception {
-        if (msg instanceof HttpRequest) {
-            HttpRequest request = (HttpRequest) msg;
-            String uri = request.getUri();
-            switch (uri) {
-                case "/":
-                    writeResponse(ctx, request, CONTENT_BUFFER.duplicate(), TYPE_PLAIN, contentLength);
-                    return;
-                case "/plaintext":
-                    writeResponse(ctx, request, CONTENT_BUFFER.duplicate(), TYPE_PLAIN, contentLength);
-                    return;
-                case "/json":
-                    byte[] json = MAPPER.writeValueAsBytes(new Message("Hello, World!"));
-                    writeResponse(ctx, request, Unpooled.wrappedBuffer(json), TYPE_JSON, String.valueOf(json.length));
-                    return;
+    public void channelRead0(ChannelHandlerContext ctx, Object msg) {
+        try {
+            if (msg instanceof HttpRequest) {
+                FullHttpRequest request = (FullHttpRequest) msg;
+                final String uri = request.uri();
+                final HttpMethod method = request.method();
+
+                byte[] json;
+
+                switch (uri) {
+                    case "/":
+                        writeResponse(ctx, request, CONTENT_BUFFER.duplicate(), TYPE_PLAIN, contentLength);
+                        return;
+
+                    case "/todos":
+                        json = MAPPER.writeValueAsBytes(TodoList.getAll());
+                        writeResponse(ctx, request, Unpooled.wrappedBuffer(json), TYPE_JSON, String.valueOf(json.length));
+                        return;
+
+                    case "/todo":
+                        if (method == HttpMethod.PUT) {
+                            // create
+                            ToDo newTodo = MAPPER.readValue(request.content().toString(CharsetUtil.UTF_8), ToDo.class);
+                            json = MAPPER.writeValueAsBytes(newTodo);
+                            writeResponse(ctx, request, Unpooled.wrappedBuffer(json), TYPE_JSON, String.valueOf(json.length));
+                            return;
+                        }
+                        break;
+
+                    default:
+                        if (uri.startsWith("/todo/")) {
+                            int todoIndex = Integer.parseInt(uri.replace("/todo/", ""));
+                            if (todoIndex > 0) {
+                                ToDo targetToDo = TodoList.getTodo(todoIndex);
+                                if (method == HttpMethod.GET) {
+                                    // get by id
+                                    json = MAPPER.writeValueAsBytes(targetToDo);
+                                    writeResponse(ctx, request, Unpooled.wrappedBuffer(json), TYPE_JSON, String.valueOf(json.length));
+                                    return;
+                                }
+
+                                if (method == HttpMethod.POST) {
+                                    // update
+                                    ToDo newTodo = MAPPER.readValue(request.content().toString(CharsetUtil.UTF_8), ToDo.class);
+                                    targetToDo.setMessage(newTodo.getMessage());
+                                    targetToDo.setStatus(newTodo.getStatus());
+                                    TodoList.setTodo(todoIndex, targetToDo);
+                                    json = MAPPER.writeValueAsBytes(targetToDo);
+                                    writeResponse(ctx, request, Unpooled.wrappedBuffer(json), TYPE_JSON, String.valueOf(json.length));
+                                    return;
+                                }
+                            }
+                        }
+                        break;
+                }
+                FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND, Unpooled.EMPTY_BUFFER, false);
+                ctx.write(response).addListener(ChannelFutureListener.CLOSE);
             }
-            FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NOT_FOUND, Unpooled.EMPTY_BUFFER, false);
-            ctx.write(response).addListener(ChannelFutureListener.CLOSE);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 

@@ -1,5 +1,6 @@
 package com.github.synle.netty;
 
+import com.github.synle.netty.data.TodoList;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelOption;
@@ -19,6 +20,11 @@ public class AppServer {
         EventLoopGroup workerGroup = new NioEventLoopGroup();
 
         try {
+            // set up some mocked data
+            TodoList.addTodo("Todo 0", "incomplete");
+            TodoList.addTodo("Todo 1", "complete");
+            TodoList.addTodo("Todo 2", "complete");
+            TodoList.addTodo("Todo 3", "incomplete");
 
             ServerBootstrap httpBootstrap = new ServerBootstrap();
 

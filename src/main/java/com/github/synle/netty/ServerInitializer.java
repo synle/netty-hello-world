@@ -1,5 +1,6 @@
 package com.github.synle.netty;
 
+import com.github.synle.netty.data.TodoList;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
